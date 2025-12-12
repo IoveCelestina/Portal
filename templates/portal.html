@@ -1,0 +1,46 @@
+<!-- templates/portal.html -->
+<div class="card" style="margin-top: 12px;">
+  <button id="accept-btn" class="ad-link" type="button">
+    我已阅读并同意，继续上网
+  </button>
+  <div id="accept-status" class="status"></div>
+</div>
+
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>WIFI-Ad-Beacon Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    /* 保留你之前的样式，这里略 */
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">WIFI-Ad-Beacon Portal</h1>
+    <p class="desc">正在为你匹配附近的专属优惠...</p>
+    <div id="status" class="status">初始化中...</div>
+
+    <div id="ad-card" class="card" style="display:none;">
+      <img id="ad-image" class="ad-img" src="" alt="" />
+      <div class="ad-title" id="ad-title"></div>
+      <a id="ad-link" class="ad-link" href="#" target="_blank" rel="noopener noreferrer">
+        立即查看
+      </a>
+    </div>
+
+    <div id="empty" class="card" style="display:none;">
+      当前没有合适的广告，欢迎继续上网。
+    </div>
+
+    <div id="error" class="card" style="display:none; color:#d00;">
+      加载广告失败，请稍后重试。
+    </div>
+  </div>
+
+  <!-- 关键：引入刚才编译出来的 TypeScript 产物 -->
+  <script src="{% static 'js/portal.js' %}" defer></script>
+</body>
+</html>
