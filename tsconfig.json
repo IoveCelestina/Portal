@@ -1,0 +1,18 @@
+// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "ESNext",
+    "lib": ["DOM", "ES2019"],
+    "strict": true,
+    "noImplicitAny": true,
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+
+    // 源码目录：写 TS
+    "rootDir": "frontend",
+    // 编译输出：Django 静态文件目录（你可以按自己实际路径微调）
+    "outDir": "static/js"
+  },
+  "include": ["frontend/**/*"]
+}

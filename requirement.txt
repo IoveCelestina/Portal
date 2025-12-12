@@ -1,0 +1,6 @@
+# requirements.txt
+Django>=5.0,<6.0
+djangorestframework>=3.15.0,<4.0
+django-cors-headers>=4.3.0,<5.0
+psycopg2-binary>=2.9.0,<3.0  # 若使用 PostgreSQL/PostGIS
+# 若要用 GeoDjango + PostGIS，需要在系统层面安装 GDAL/GEOS/PostGIS
