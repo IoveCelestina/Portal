@@ -1,46 +1,482 @@
-<!-- templates/portal.html -->
-<div class="card" style="margin-top: 12px;">
-  <button id="accept-btn" class="ad-link" type="button">
-    我已阅读并同意，继续上网
-  </button>
-  <div id="accept-status" class="status"></div>
-</div>
-
 {% load static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <title>WIFI-Ad-Beacon Portal</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    /* 保留你之前的样式，这里略 */
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1 class="title">WIFI-Ad-Beacon Portal</h1>
-    <p class="desc">正在为你匹配附近的专属优惠...</p>
-    <div id="status" class="status">初始化中...</div>
+  <head>
+    <meta charset="UTF-8" />
+    <title>WIFI-Ad-Beacon Portal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      :root {
+        --bg-gradient-start: #0f172a;
+        --bg-gradient-end: #020617;
+        --card-bg: #0b1120;
+        --card-border: rgba(148, 163, 184, 0.2);
+        --accent: #22c55e;
+        --accent-soft: rgba(34, 197, 94, 0.12);
+        --accent-strong: #16a34a;
+        --text-main: #e5e7eb;
+        --text-sub: #9ca3af;
+        --text-muted: #6b7280;
+      }
 
-    <div id="ad-card" class="card" style="display:none;">
-      <img id="ad-image" class="ad-img" src="" alt="" />
-      <div class="ad-title" id="ad-title"></div>
-      <a id="ad-link" class="ad-link" href="#" target="_blank" rel="noopener noreferrer">
-        立即查看
-      </a>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        color: var(--text-main);
+        background: radial-gradient(circle at top, #1e293b 0, #020617 55%);
+        display: flex;
+        align-items: stretch;
+        justify-content: center;
+      }
+
+      .portal-shell {
+        width: 100%;
+        max-width: 960px;
+        margin: 16px;
+        padding: 24px 20px 28px;
+        border-radius: 24px;
+        background: linear-gradient(
+              135deg,
+              rgba(148, 163, 184, 0.18),
+              transparent 40%
+            )
+            border-box,
+          radial-gradient(circle at top left, #22c55e22, transparent 55%)
+            border-box,
+          rgba(15, 23, 42, 0.98);
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      @media (min-width: 768px) {
+        .portal-shell {
+          margin-top: 40px;
+          margin-bottom: 40px;
+          padding: 28px 32px 32px;
+        }
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .brand-logo {
+        width: 32px;
+        height: 32px;
+        border-radius: 12px;
+        background: radial-gradient(circle at 20% 0, #bbf7d0, #22c55e);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 18px;
+        color: #022c22;
+      }
+
+      .brand-text h1 {
+        margin: 0;
+        font-size: 20px;
+        letter-spacing: 0.04em;
+      }
+
+      .brand-text p {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: var(--text-sub);
+      }
+
+      .badge-captive {
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.45);
+        color: var(--text-sub);
+      }
+
+      main {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .status-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 13px;
+        color: var(--text-sub);
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background-color: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        font-size: 12px;
+        color: var(--text-sub);
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background-color: var(--accent);
+        box-shadow: 0 0 12px rgba(34, 197, 94, 0.8);
+      }
+
+      .status-text {
+        font-size: 13px;
+        color: var(--text-main);
+      }
+
+      .layout-columns {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      @media (min-width: 900px) {
+        .layout-columns {
+          flex-direction: row;
+        }
+      }
+
+      .col-main {
+        flex: 3;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .col-side {
+        flex: 2;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      /* 大广告卡片 */
+      .ad-card {
+        display: none; /* 初始由 JS 控制 */
+        border-radius: 22px;
+        background: radial-gradient(
+              circle at 0 0,
+              rgba(34, 197, 94, 0.08),
+              transparent 52%
+            ),
+          radial-gradient(
+              circle at 100% 100%,
+              rgba(59, 130, 246, 0.12),
+              transparent 50%
+            ),
+          var(--card-bg);
+        border: 1px solid var(--card-border);
+        overflow: hidden;
+      }
+
+      .ad-card-inner {
+        display: flex;
+        flex-direction: column;
+      }
+
+      @media (min-width: 900px) {
+        .ad-card-inner {
+          flex-direction: row;
+        }
+      }
+
+      .ad-visual {
+        position: relative;
+        flex: 3;
+        min-height: 220px;
+        max-height: 360px;
+        overflow: hidden;
+      }
+
+      .ad-visual img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transform: scale(1.02);
+      }
+
+      .ad-visual-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          135deg,
+          rgba(15, 23, 42, 0.5),
+          transparent 40%
+        );
+      }
+
+      .ad-tag {
+        position: absolute;
+        left: 16px;
+        top: 14px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background-color: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.6);
+        font-size: 11px;
+        color: var(--text-main);
+      }
+
+      .ad-content {
+        flex: 2;
+        padding: 18px 18px 18px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      @media (min-width: 900px) {
+        .ad-content {
+          padding: 18px 20px 18px 18px;
+        }
+      }
+
+      #ad-title {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.4;
+      }
+
+      .ad-desc {
+        margin: 0;
+        font-size: 13px;
+        color: var(--text-sub);
+      }
+
+      .ad-meta {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .ad-actions {
+        margin-top: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 18px;
+        border-radius: 999px;
+        border: none;
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: #022c22;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        box-shadow: 0 10px 25px rgba(34, 197, 94, 0.35);
+        transition: transform 0.12s ease-out, box-shadow 0.12s ease-out,
+          filter 0.12s ease-out;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 30px rgba(34, 197, 94, 0.5);
+        filter: brightness(1.03);
+      }
+
+      .btn-primary:active {
+        transform: translateY(0);
+        box-shadow: 0 8px 15px rgba(34, 197, 94, 0.35);
+      }
+
+      .btn-primary span {
+        margin-left: 4px;
+        font-size: 12px;
+      }
+
+      /* 空和错误状态 */
+      .card-soft {
+        border-radius: 18px;
+        padding: 12px 14px;
+        font-size: 13px;
+        border: 1px dashed rgba(148, 163, 184, 0.35);
+        background-color: rgba(15, 23, 42, 0.9);
+        color: var(--text-sub);
+      }
+
+      #empty {
+        display: none;
+      }
+
+      #error {
+        display: none;
+        border-color: rgba(248, 113, 113, 0.55);
+        background-color: rgba(127, 29, 29, 0.4);
+        color: #fecaca;
+      }
+
+      /* 底部“继续上网” */
+      footer {
+        margin-top: 8px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(30, 64, 175, 0.5);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      #accept-btn {
+        align-self: flex-start;
+        padding: 8px 18px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.6);
+        background-color: rgba(15, 23, 42, 0.95);
+        color: var(--text-main);
+        font-size: 13px;
+        cursor: pointer;
+        transition: background-color 0.12s ease-out, border-color 0.12s ease-out,
+          transform 0.12s ease-out;
+      }
+
+      #accept-btn:hover {
+        background-color: rgba(30, 64, 175, 0.75);
+        border-color: rgba(191, 219, 254, 0.8);
+        transform: translateY(-1px);
+      }
+
+      #accept-btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+        transform: none;
+      }
+
+      #accept-status {
+        font-size: 12px;
+        color: var(--text-sub);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="portal-shell">
+      <header>
+        <div class="brand">
+          <div class="brand-logo">Wi</div>
+          <div class="brand-text">
+            <h1>WIFI-Ad-Beacon Portal</h1>
+            <p>连接成功 · 正在为你匹配附近的专属广告</p>
+          </div>
+        </div>
+        <div class="badge-captive">需先完成页面认证后才能继续上网</div>
+      </header>
+
+      <main>
+        <div class="status-row">
+          <div class="status-pill">
+            <span class="status-dot"></span>
+            <span>广告引擎已连接</span>
+          </div>
+          <div id="status" class="status-text">
+            初始化中...
+          </div>
+        </div>
+
+        <div class="layout-columns">
+          <section class="col-main">
+            <!-- 大广告卡片 -->
+            <article id="ad-card" class="ad-card">
+              <div class="ad-card-inner">
+                <div class="ad-visual">
+                  <img
+                    id="ad-image"
+                    src="{% static 'img/placeholder-ad.jpg' %}"
+                    alt="广告图片"
+                  />
+                  <div class="ad-visual-overlay"></div>
+                  <div class="ad-tag">附近商家专属福利</div>
+                </div>
+                <div class="ad-content">
+                  <h2 id="ad-title">正在为你加载专属广告...</h2>
+                  <p class="ad-desc">
+                    根据你当前的位置与设备，为你筛选最匹配、到店可用的优惠权益。点击下方按钮了解详情。
+                  </p>
+                  <p class="ad-meta">
+                    连接本 WiFi 仅用于展示本地广告内容，不会持久化存储你的精确轨迹。
+                  </p>
+                  <div class="ad-actions">
+                    <a
+                      id="ad-link"
+                      href="#"
+                      class="btn-primary"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      立即查看
+                      <span>→</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <!-- 无广告时 -->
+            <div id="empty" class="card-soft">
+              当前没有匹配到合适的定向广告，将为你展示通用品牌曝光内容。
+            </div>
+
+            <!-- 发生错误时 -->
+            <div id="error" class="card-soft">
+              加载广告时出现问题，请稍后刷新页面重试。
+            </div>
+          </section>
+
+          <aside class="col-side">
+            <div class="card-soft">
+              <strong>如何继续上网？</strong>
+              <br />
+              1. 浏览本页面推荐的广告内容；<br />
+              2. 点击下方「我已阅读并同意，继续上网」按钮；<br />
+              3. 完成认证后，本设备将自动放行访问互联网。
+            </div>
+            <div class="card-soft">
+              <strong>隐私说明</strong>
+              <br />
+              你的经纬度仅在内存中参与广告匹配，不会写入长期日志或对外共享。
+            </div>
+          </aside>
+        </div>
+      </main>
+
+      <footer>
+        <button id="accept-btn" type="button">
+          我已阅读并同意，继续上网
+        </button>
+        <div id="accept-status"></div>
+      </footer>
     </div>
 
-    <div id="empty" class="card" style="display:none;">
-      当前没有合适的广告，欢迎继续上网。
-    </div>
-
-    <div id="error" class="card" style="display:none; color:#d00;">
-      加载广告失败，请稍后重试。
-    </div>
-  </div>
-
-  <!-- 关键：引入刚才编译出来的 TypeScript 产物 -->
-  <script src="{% static 'js/portal.js' %}" defer></script>
-</body>
+    <script src="{% static 'js/portal.js' %}" defer></script>
+  </body>
 </html>

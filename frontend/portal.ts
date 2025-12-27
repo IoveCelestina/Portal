@@ -168,52 +168,56 @@ function startVisitPingLoop(): void {
   });
 }
 
+// frontend/portal.ts 里，替换你的 acceptPortal 函数为下面这个版本
+
 async function acceptPortal(): Promise<void> {
   const btn = $("accept-btn") as HTMLButtonElement;
+  const acceptStatus = $("accept-status");
+
   btn.disabled = true;
-  setAcceptStatus("正在提交认证...");
+  acceptStatus.textContent = "正在提交认证...";
 
   try {
-    const geo = lastGeo ?? (await tryGetGeo());
-
-    const payload = {
-      latitude: geo?.latitude ?? null,
-      longitude: geo?.longitude ?? null,
-      accuracy_m: geo?.accuracy_m ?? null,
-    };
-
     const res = await fetch("/api/v1/portal/accept/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      // 目前不需要 body，后端只看 IP（以及可选的 UA）
+      body: JSON.stringify({}),
     });
 
+    // 任何非 2xx 直接当失败处理
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
+      console.error("portal accept http error:", res.status, res.statusText);
+      acceptStatus.textContent = `认证失败：返回状态 ${res.status}`;
+      return;
     }
 
-    const data = await res.json();
+    // 尝试解析 JSON（解析失败也不影响认证本身）
+    let data: any = null;
+    try {
+      data = await res.json();
+      console.log("portal accept response:", data);
+    } catch (e) {
+      console.warn("portal accept response is not valid JSON:", e);
+    }
 
-    if (data.ok) {
-        startVisitPingLoop();
-      if (data.venue) {
-        const v = data.venue;
-        setAcceptStatus(
-          `认证成功。归因店铺：${v.name}（${v.category}），距离约 ${v.distance_m ?? "?"}m`
-        );
-      } else {
-        setAcceptStatus("认证成功。但未命中附近店铺（可能未授权定位或距离阈值过小）。");
-      }
+    // 如果有 is_authenticated 字段并且是 false，就提示警告；
+    // 其它情况一律认为认证成功（因为后端 200 就已经代表成功）
+    if (data && data.is_authenticated === false) {
+      acceptStatus.textContent = "认证未生效，请稍后重试。";
     } else {
-      setAcceptStatus("认证失败：返回状态异常。");
+      acceptStatus.textContent = "认证成功，你可以继续访问互联网。";
     }
   } catch (error) {
     console.error("accept portal error:", error);
-    setAcceptStatus("认证失败，请稍后重试。");
+    acceptStatus.textContent = "认证失败：网络异常或服务器错误。";
   } finally {
     btn.disabled = false;
   }
 }
+
 
 
 function initPortal(): void {

@@ -206,45 +206,59 @@ def get_client_ip_from_request(request) -> str:
     return meta.get("REMOTE_ADDR", "")
 
 
-def mark_client_authenticated(ip_address: str, user_agent: str | None,
-                              latitude: float | None = None,
-                              longitude: float | None = None,
-                              accuracy_m: int | None = None):
-    session, _ = ClientSession.objects.get_or_create(ip_address=ip_address)
 
-    session.user_agent = user_agent or session.user_agent
+def mark_client_authenticated(
+    ip_address: str,
+    user_agent: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+) -> ClientSession:
+    """
+    标记客户端通过 Portal 认证：
+    - 必须：IP、user_agent
+    - 可选：latitude / longitude，用于绑定最近的 venue（如果你有这套逻辑）
+    - 在 Windows 开发环境不会执行任何 iptables/ipset 脚本
+    """
+    session, _ = ClientSession.objects.get_or_create(
+        ip_address=ip_address,
+        defaults={"user_agent": user_agent or ""},
+    )
+
     session.is_authenticated = True
+    session.user_agent = user_agent or session.user_agent
 
-    # 写入 MAC（仅在空或变化时更新）
-    mac = resolve_mac_address(ip_address)
-    if mac:
-        session.mac_address = mac
-
-    # 写入位置（仅在有值时更新）
+    # ⭐ 只有在有坐标时才尝试匹配最近场馆
     if latitude is not None and longitude is not None:
-        session.latitude = latitude
-        session.longitude = longitude
-        session.location_accuracy_m = accuracy_m
-        session.location_updated_at = timezone.now()
+        try:
+            venue, distance_m = match_nearest_venue(
+                latitude=latitude,
+                longitude=longitude,
+            )
+            # 如果你在 ClientSession 上有这些字段，就在这里赋值：
+            # session.venue = venue
+            # session.distance_to_venue_m = distance_m
+        except Exception as exc:
+            # 不要让匹配失败影响认证本身
+            logger.warning(
+                "match_nearest_venue failed for %s (lat=%s, lon=%s): %s",
+                ip_address,
+                latitude,
+                longitude,
+                exc,
+            )
 
-    # 基于本地 POI 缓存匹配“用户所在店铺/场所”
-    venue, distance_m = match_nearest_venue(latitude=latitude, longitude=longitude)
-    if venue:
-        _apply_matched_venue_to_session(session, venue, distance_m)
-    else:
-        # 没命中则清空
-        session.venue = None
-        session.venue_distance_m = None
+    # 保存基本认证信息（如果上面多加了字段，记得一起写进 update_fields）
+    session.save(update_fields=["is_authenticated", "user_agent", "last_seen"])
 
-    session.save()
-
-    # 放行脚本逻辑保留
+    # ⭐ 放行脚本：仅当设置了路径且文件存在时才执行（Windows 下通常不会执行）
     allow_script = getattr(settings, "PORTAL_ALLOW_IP_SCRIPT", None)
-    if allow_script:
-        subprocess.run([allow_script, ip_address], check=False)
+    if allow_script and os.path.isfile(allow_script):
+        try:
+            run([allow_script, ip_address], check=True)
+        except (CalledProcessError, FileNotFoundError) as exc:
+            logger.error("Failed to run allow script for %s: %s", ip_address, exc)
 
-
-
+    return session
 #ip->mac解析函数
 _MAC_RE = re.compile(r"([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}")
 

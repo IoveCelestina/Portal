@@ -92,39 +92,42 @@ class PortalPageView(View):
 
 
 class PortalAcceptView(APIView):
-    def post(self, request):
-        ser = PortalAcceptSerializer(data=request.data)
-        ser.is_valid(raise_exception=True)
+    """
+    POST /api/v1/portal/accept/
 
-        ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip() or request.META.get("REMOTE_ADDR")
-        ua = request.META.get("HTTP_USER_AGENT", "")
+    前端在 Portal 页面上点击“同意上网”时调用：
+    - 根据 REMOTE_ADDR 获取客户端 IP
+    - 标记 ClientSession 为已认证
+    - 可选：如果 body 里带 latitude/longitude，则顺带做一次 venue 匹配
+    """
 
-        mark_client_authenticated(
-            ip_address=ip,
-            user_agent=ua,
-            latitude=ser.validated_data.get("latitude"),
-            longitude=ser.validated_data.get("longitude"),
-            accuracy_m=ser.validated_data.get("accuracy_m"),
+    authentication_classes: list = []
+    permission_classes: list = []
+
+    def post(self, request, *args, **kwargs):
+        client_ip = get_client_ip_from_request(request)
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+        if not client_ip:
+            return Response(
+                {"detail": "无法获取客户端 IP"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        data = request.data or {}
+        latitude = data.get("latitude")
+        longitude = data.get("longitude")
+
+        # 前端没传坐标时，这两个就是 None；没关系，mark_client_authenticated 会自己判断
+        session = mark_client_authenticated(
+            ip_address=client_ip,
+            user_agent=user_agent,
+            latitude=latitude,
+            longitude=longitude,
         )
 
-        # 读取最新 session（包含 venue 匹配结果）
-        session = ClientSession.objects.filter(ip_address=ip).select_related("venue").first()
-
-        payload = {"ok": True}
-
-        if session and session.venue:
-            payload["venue"] = {
-                "id": session.venue.id,
-                "name": session.venue.name,
-                "category": session.venue.category,
-                "distance_m": session.venue_distance_m,
-            }
-        else:
-            payload["venue"] = None
-
-        return Response(payload, status=status.HTTP_200_OK)
-
-
+        resp_data = PortalAcceptResponseSerializer(session).data
+        return Response(resp_data, status=status.HTTP_200_OK)
 class PortalPingView(APIView):
     """
     POST /api/v1/portal/ping/
